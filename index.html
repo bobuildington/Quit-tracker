@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A private, customizable quit tracker. Track anything you want to quit, your way. No account, no server, data stays on your device.">
+<meta name="theme-color" content="#0f766e">
+<title>Quit Tracker</title>
+<style>
+:root{--accent:#0f766e;--bg:#f4f6f3;--card:#ffffff;--text:#111827;--muted:#5b6470;--border:#dfe5df;--danger:#b42318}
+html[data-theme="dark"]{--bg:#121417;--card:#1c1e22;--text:#f3f4f6;--muted:#a7adb8;--border:#33373d}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.45}
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 60px}
+header{margin-bottom:16px}
+h1{margin:0 0 4px;font-size:32px;letter-spacing:-.02em}
+.sub{color:var(--muted);margin:0 0 16px}
+.totals{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px}
+.stat b{display:block;font-size:20px}
+.stat span{color:var(--muted);font-size:13px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+button,.btn{appearance:none;border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:12px;padding:12px 16px;font-size:16px;cursor:pointer;min-height:46px}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+button.danger{color:var(--danger);border-color:#f0b8b2}
+button.small{padding:8px 12px;min-height:40px;font-size:14px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:18px;margin:14px 0}
+.card h2{margin:0 0 4px;font-size:22px}
+.card .meta{color:var(--muted);font-size:14px;margin:0 0 12px}
+.timer{font-size:28px;font-weight:800;letter-spacing:-.02em;margin:8px 0 2px}
+.timer small{font-size:14px;font-weight:600;color:var(--muted)}
+.numbers{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.numbers div{background:var(--bg);border-radius:12px;padding:10px}
+.numbers b{display:block;font-size:18px}
+.numbers span{color:var(--muted);font-size:13px}
+.progress{height:10px;background:var(--bg);border:1px solid var(--border);border-radius:99px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent)}
+.milestone{font-size:14px;color:var(--muted);margin:6px 0 12px}
+.empty{text-align:center;padding:28px 18px}
+.empty h2{margin-top:0}
+.templates{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:14px 0}
+label{display:block;font-weight:650;margin:14px 0 4px}
+input,select,textarea{width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);font-size:16px}
+textarea{min-height:70px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center;padding:20px 12px;overflow:auto;z-index:50}
+.overlay.open{display:flex}
+.sheet{background:var(--card);border-radius:18px;padding:20px;width:100%;max-width:560px;margin:auto}
+.sheet h2{margin-top:0}
+.check{display:flex;gap:10px;align-items:center;font-weight:500}
+.check input{width:20px;height:20px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111827;color:#fff;padding:12px 18px;border-radius:99px;z-index:99;display:none}
+.toast.show{display:block}
+.foot{color:var(--muted);font-size:13px;text-align:center;margin-top:28px}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.swatch{width:44px;height:44px;border-radius:50%;border:3px solid transparent;cursor:pointer;padding:0}
+.swatch.on{border-color:var(--text)}
+@media(max-width:520px){.totals{grid-template-columns:1fr 1fr}.totals .stat:last-child{grid-column:1/-1}.grid2{grid-template-columns:1fr}h1{font-size:28px}.timer{font-size:26px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<h1 id="appTitle">Quit Tracker</h1>
+<p class="sub" id="appSubtitle">Track anything you want to quit, your way. No account. No server. Your data stays on this device.</p>
+<div class="totals" id="totals"></div>
+<div class="row">
+<button class="primary" onclick="openTrackerForm()">+ Add a tracker</button>
+<button onclick="openSettings()">Customize app</button>
+</div>
+</header>
+<main id="list"></main>
+<p class="foot">Made for GitHub Pages. Export a backup from Customize app before switching devices, because there is no cloud sync.</p>
+</div>
+
+<div class="overlay" id="trackerOverlay"><div class="sheet">
+<h2 id="trackerFormTitle">Add a tracker</h2>
+<p class="sub" style="margin-top:-8px">Start with a template, then change anything. Every field below is yours to edit.</p>
+<div class="templates" id="templates"></div>
+<form onsubmit="saveTracker(event)">
+<input type="hidden" id="fId">
+<label for="fName">What are you quitting?</label>
+<input id="fName" required maxlength="60" placeholder="e.g. Cigarettes, Soda, Late-night snacking">
+<div class="grid2">
+<div><label for="fIcon">Icon</label><select id="fIcon"><option>🚬</option><option>🌿</option><option>💨</option><option>🍺</option><option>🥤</option><option>☕</option><option>🍬</option><option>🍩</option><option>📱</option><option>🎮</option><option>🛒</option><option>✨</option></select></div>
+<div><label for="fColor">Card color</label><input type="color" id="fColor" value="#0f766e"></div>
+</div>
+<div class="grid2">
+<div><label for="fUnit">Unit name</label><input id="fUnit" maxlength="30" placeholder="cigarettes, drinks, cans"></div>
+<div><label for="fCost">Cost per unit</label><input id="fCost" type="number" min="0" step="0.01" placeholder="0.00"></div>
+</div>
+<div class="grid2">
+<div><label for="fPerDay">Usual amount per day</label><input id="fPerDay" type="number" min="0" step="0.1" placeholder="e.g. 10"></div>
+<div><label for="fGoal">Goal in days (optional)</label><input id="fGoal" type="number" min="1" step="1" placeholder="e.g. 90"></div>
+</div>
+<div class="grid2">
+<div><label for="fDate">Quit date</label><input id="fDate" type="date" required></div>
+<div><label for="fTime">Quit time</label><input id="fTime" type="time" required></div>
+</div>
+<label for="fNotes">Notes (optional)</label>
+<textarea id="fNotes" maxlength="500" placeholder="Why you are quitting, a reminder for hard days, anything."></textarea>
+<div class="row" style="margin-top:16px"><button class="primary" type="submit">Save tracker</button><button type="button" onclick="closeOverlay('trackerOverlay')">Cancel</button></div>
+</form>
+</div></div>
+
+<div class="overlay" id="slipOverlay"><div class="sheet">
+<h2>Log a slip</h2>
+<p class="sub">This does not erase your progress unless you choose to reset. It just keeps the record honest.</p>
+<form onsubmit="saveSlip(event)">
+<input type="hidden" id="sId">
+<label for="sCount">How many units?</label>
+<input id="sCount" type="number" min="0" step="0.1" value="1" required>
+<label for="sNote">Note (optional)</label>
+<input id="sNote" maxlength="200" placeholder="What triggered it?">
+<label class="check"><input type="checkbox" id="sReset"> Also reset my start date to now</label>
+<div class="row" style="margin-top:16px"><button class="primary" type="submit">Save slip</button><button type="button" onclick="closeOverlay('slipOverlay')">Cancel</button></div>
+</form>
+</div></div>
+
+<div class="overlay" id="settingsOverlay"><div class="sheet">
+<h2>Customize app</h2>
+<p class="sub">This changes the app itself, for everyone using this copy on this device.</p>
+<form onsubmit="saveSettings(event)">
+<label for="aTitle">App title</label>
+<input id="aTitle" maxlength="60">
+<label>Theme</label>
+<select id="aTheme"><option value="light">Light</option><option value="dark">Dark</option></select>
+<label>Accent color</label>
+<div class="swatches" id="swatches"></div>
+<input type="color" id="aAccent" style="margin-top:10px">
+<label for="aCurrency">Currency symbol</label>
+<input id="aCurrency" maxlength="3" placeholder="$">
+<label class="check"><input type="checkbox" id="aMoney"> Show money saved</label>
+<label class="check"><input type="checkbox" id="aUnits"> Show units avoided</label>
+<label class="check"><input type="checkbox" id="aMiles"> Show milestones</label>
+<label class="check"><input type="checkbox" id="aCrave"> Show craving logging</label>
+<div class="row" style="margin-top:16px"><button class="primary" type="submit">Save app settings</button><button type="button" onclick="closeOverlay('settingsOverlay')">Cancel</button></div>
+</form>
+<hr style="border:none;border-top:1px solid var(--border);margin:20px 0">
+<div class="row"><button onclick="exportData()">Export backup</button><button onclick="document.getElementById('importFile').click()">Import backup</button><button class="danger" onclick="eraseAll()">Erase everything</button></div>
+<input type="file" id="importFile" accept=".json,application/json" hidden onchange="importData(event)">
+</div></div>
+
+<div class="toast" id="toast"></div>
+<script>
+const KEY='quit-tracker-v1';
+const MILESTONES=[1,3,7,14,21,30,60,90,180,365,500,730,1000];
+const ACCENTS=['#0f766e','#2563eb','#7c3aed','#b42318','#b45309','#0e7490'];
+const TEMPLATES=[
+ {name:'Cigarettes',icon:'🚬',unit:'cigarettes',cost:0.60,perDay:10,color:'#0f766e'},
+ {name:'Weed',icon:'🌿',unit:'joints',cost:5,perDay:1,color:'#15803d'},
+ {name:'Vaping',icon:'💨',unit:'vape sessions',cost:1,perDay:5,color:'#2563eb'},
+ {name:'Alcohol',icon:'🍺',unit:'drinks',cost:4,perDay:2,color:'#b45309'},
+ {name:'Soda',icon:'🥤',unit:'cans',cost:1.50,perDay:2,color:'#b42318'},
+ {name:'Coffee',icon:'☕',unit:'cups',cost:3,perDay:2,color:'#78350f'},
+ {name:'Snacks / Sugar',icon:'🍬',unit:'snacks',cost:2,perDay:2,color:'#be185d'},
+ {name:'Custom',icon:'✨',unit:'units',cost:0,perDay:0,color:'#0f766e'}
+];
+function uid(){return 't'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.app&&Array.isArray(s.trackers))return s}catch(e){}return {app:{title:'Quit Tracker',theme:'light',accent:'#0f766e',currency:'$',showMoney:true,showUnits:true,showMilestones:true,showCravings:true},trackers:[]}}
+let state=load();
+function save(){localStorage.setItem(KEY,JSON.stringify(state));applyApp()}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
+function money(n){const c=state.app.currency||'$';return c+Number(n||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
+function num(n){return Number(n||0).toLocaleString(undefined,{maximumFractionDigits:1})}
+function stats(t,now){const start=new Date(t.quitAt).getTime();const ms=Math.max(0,now-start);const days=ms/86400000;const slipUnits=(t.slips||[]).reduce((a,s)=>a+Number(s.count||0),0);const avoided=Math.max(0,days*Number(t.perDay||0)-slipUnits);const saved=avoided*Number(t.cost||0);const d=Math.floor(days);const h=Math.floor(ms/3600000)%24;const m=Math.floor(ms/60000)%60;const s=Math.floor(ms/1000)%60;return {days,ms,d,h,m,s,avoided,saved,slipUnits}}
+function nextMilestone(days){for(const x of MILESTONES){if(days<x)return x}return null}
+function applyApp(){document.documentElement.dataset.theme=state.app.theme||'light';document.documentElement.style.setProperty('--accent',state.app.accent||'#0f766e');document.getElementById('appTitle').textContent=state.app.title||'Quit Tracker';document.title=state.app.title||'Quit Tracker'}
+function closeOverlay(id){document.getElementById(id).classList.remove('open')}
+function openOverlay(id){document.getElementById(id).classList.add('open')}
+function render(){
+ applyApp();
+ const now=Date.now();
+ const tot=document.getElementById('totals');
+ let totalSaved=0,totalAvoided=0,totalDays=0;
+ state.trackers.forEach(t=>{const s=stats(t,now);totalSaved+=s.saved;totalAvoided+=s.avoided;totalDays=Math.max(totalDays,s.days)});
+ tot.innerHTML='<div class="stat"><b>'+esc(money(totalSaved))+'</b><span>Saved in total</span></div><div class="stat"><b>'+esc(num(totalAvoided))+'</b><span>Units avoided</span></div><div class="stat"><b>'+esc(Math.floor(totalDays))+'</b><span>Longest streak, days</span></div>';
+ const list=document.getElementById('list');
+ if(!state.trackers.length){
+  list.innerHTML='<div class="card empty"><h2>Start your first tracker</h2><p class="sub">Pick a template below, or add a blank one. You can change the name, unit, price, daily amount, color and start date after.</p><div class="templates">'+TEMPLATES.map((p,i)=>'<button onclick="openTrackerForm(null,'+i+')">'+esc(p.icon)+' '+esc(p.name)+'</button>').join('')+'</div><button class="primary" onclick="openTrackerForm()">+ Add a tracker</button></div>';return;
+ }
+ list.innerHTML=state.trackers.map(t=>{
+  const s=stats(t,now);const nm=nextMilestone(s.days);const crav=(t.cravings||[]).length;
+  const goal=t.goalDays?('<div class="milestone">Goal: '+esc(t.goalDays)+' days &middot; '+Math.min(100,Math.round(s.days/t.goalDays*100))+'% there</div><div class="progress"><i style="width:'+Math.min(100,s.days/t.goalDays*100)+'%"></i></div>'):'';
+  const mile=state.app.showMilestones&&nm?('<div class="milestone">Next milestone: '+nm+' days &middot; '+Math.round(s.days/nm*100)+'% there</div><div class="progress"><i style="width:'+Math.min(100,s.days/nm*100)+'%"></i></div>'):(state.app.showMilestones?'<div class="milestone">Milestone unlocked: 1000+ days. Huge.</div>':'');
+  return '<article class="card" style="border-top:6px solid '+esc(t.color||'#0f766e')+'"><h2>'+esc(t.icon)+' '+esc(t.name)+'</h2><p class="meta">Since '+esc(new Date(t.quitAt).toLocaleString())+(t.notes?' &middot; '+esc(t.notes):'')+'</p><div class="timer" data-timer="'+t.id+'">'+s.d+'d '+s.h+'h '+s.m+'m '+s.s+'s</div><div class="meta">clean so far</div><div class="numbers">'+(state.app.showMoney?'<div><b>'+esc(money(s.saved))+'</b><span>Money saved</span></div>':'')+(state.app.showUnits?'<div><b>'+esc(num(s.avoided))+'</b><span>'+esc(t.unit||'units')+' avoided</span></div>':'')+'</div>'+goal+mile+'<p class="meta">Slips: '+(t.slips||[]).length+' &middot; Cravings logged: '+crav+'</p><div class="row">'+(state.app.showCravings?'<button class="small" onclick="logCraving(\''+t.id+'\')">Log craving</button>':'')+'<button class="small" onclick="openSlip(\''+t.id+'\')">Log slip</button><button class="small" onclick="openTrackerForm(\''+t.id+'\')">Edit</button><button class="small danger" onclick="deleteTracker(\''+t.id+'\')">Delete</button></div></article>';
+ }).join('');
+}
+function updateTimers(){
+ const now=Date.now();
+ document.querySelectorAll('[data-timer]').forEach(el=>{const t=state.trackers.find(x=>x.id===el.dataset.timer);if(!t)return;const s=stats(t,now);el.textContent=s.d+'d '+s.h+'h '+s.m+'m '+s.s+'s'});
+}
+function openTrackerForm(id,presetIdx){
+ const t=id?state.trackers.find(x=>x.id===id):null;
+ const p=(presetIdx!=null)?TEMPLATES[presetIdx]:null;
+ document.getElementById('trackerFormTitle').textContent=t?'Edit tracker':'Add a tracker';
+ document.getElementById('fId').value=t?t.id:'';
+ document.getElementById('fName').value=t?t.name:(p?p.name:'');
+ document.getElementById('fIcon').value=t?t.icon:(p?p.icon:'✨');
+ document.getElementById('fColor').value=t?t.color:(p?p.color:'#0f766e');
+ document.getElementById('fUnit').value=t?t.unit:(p?p.unit:'');
+ document.getElementById('fCost').value=t?(t.cost??''):((p&&p.cost)?p.cost:'');
+ document.getElementById('fPerDay').value=t?(t.perDay??''):((p&&p.perDay)?p.perDay:'');
+ document.getElementById('fGoal').value=t?(t.goalDays||''):'';
+ const d=t?new Date(t.quitAt):new Date();
+ document.getElementById('fDate').value=d.toISOString().slice(0,10);
+ document.getElementById('fTime').value=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+ document.getElementById('fNotes').value=t?(t.notes||''):'';
+ const tpl=document.getElementById('templates');
+ tpl.innerHTML=TEMPLATES.map((x,i)=>'<button type="button" onclick="applyTemplate('+i+')">'+esc(x.icon)+' '+esc(x.name)+'</button>').join('');
+ openOverlay('trackerOverlay');
+}
+function applyTemplate(i){const p=TEMPLATES[i];document.getElementById('fName').value=p.name;document.getElementById('fIcon').value=p.icon;document.getElementById('fColor').value=p.color;document.getElementById('fUnit').value=p.unit;document.getElementById('fCost').value=p.cost;document.getElementById('fPerDay').value=p.perDay}
+function saveTracker(e){e.preventDefault();const id=document.getElementById('fId').value;const quitAt=new Date(document.getElementById('fDate').value+'T'+document.getElementById('fTime').value);if(isNaN(quitAt))return alert('Pick a valid quit date and time.');const data={name:document.getElementById('fName').value.trim(),icon:document.getElementById('fIcon').value,color:document.getElementById('fColor').value,unit:document.getElementById('fUnit').value.trim()||'units',cost:Number(document.getElementById('fCost').value||0),perDay:Number(document.getElementById('fPerDay').value||0),goalDays:Number(document.getElementById('fGoal').value||0)||null,quitAt:quitAt.toISOString(),notes:document.getElementById('fNotes').value.trim()};if(!data.name)return;if(id){const t=state.trackers.find(x=>x.id===id);Object.assign(t,data)}else{state.trackers.push(Object.assign({id:uid(),slips:[],cravings:[]},data))}save();render();closeOverlay('trackerOverlay');toast('Tracker saved')}
+function deleteTracker(id){const t=state.trackers.find(x=>x.id===id);if(!t)return;if(!confirm('Delete "'+t.name+'"? This cannot be undone.'))return;state.trackers=state.trackers.filter(x=>x.id!==id);save();render();toast('Tracker deleted')}
+function logCraving(id){const t=state.trackers.find(x=>x.id===id);if(!t)return;(t.cravings=t.cravings||[]).push({at:new Date().toISOString()});save();render();toast('Craving logged. It will pass.')}
+function openSlip(id){document.getElementById('sId').value=id;document.getElementById('sCount').value=1;document.getElementById('sNote').value='';document.getElementById('sReset').checked=false;openOverlay('slipOverlay')}
+function saveSlip(e){e.preventDefault();const t=state.trackers.find(x=>x.id===document.getElementById('sId').value);if(!t)return;(t.slips=t.slips||[]).push({at:new Date().toISOString(),count:Number(document.getElementById('sCount').value||0),note:document.getElementById('sNote').value.trim()});if(document.getElementById('sReset').checked)t.quitAt=new Date().toISOString();save();render();closeOverlay('slipOverlay');toast('Slip logged. Keep going.')}
+function openSettings(){document.getElementById('aTitle').value=state.app.title||'';document.getElementById('aTheme').value=state.app.theme||'light';document.getElementById('aAccent').value=state.app.accent||'#0f766e';document.getElementById('aCurrency').value=state.app.currency||'$';document.getElementById('aMoney').checked=!!state.app.showMoney;document.getElementById('aUnits').checked=!!state.app.showUnits;document.getElementById('aMiles').checked=!!state.app.showMilestones;document.getElementById('aCrave').checked=!!state.app.showCravings;document.getElementById('swatches').innerHTML=ACCENTS.map(c=>'<button type="button" data-c="'+c+'" class="swatch'+(c===state.app.accent?' on':'')+'" style="background:'+c+'" onclick="pickAccent(\''+c+'\')" aria-label="'+c+'"></button>').join('');openOverlay('settingsOverlay')}
+function pickAccent(c){document.getElementById('aAccent').value=c;document.querySelectorAll('.swatch').forEach(b=>b.classList.toggle('on',b.dataset.c===c))}
+function saveSettings(e){e.preventDefault();state.app.title=document.getElementById('aTitle').value.trim()||'Quit Tracker';state.app.theme=document.getElementById('aTheme').value;state.app.accent=document.getElementById('aAccent').value;state.app.currency=document.getElementById('aCurrency').value.trim()||'$';state.app.showMoney=document.getElementById('aMoney').checked;state.app.showUnits=document.getElementById('aUnits').checked;state.app.showMilestones=document.getElementById('aMiles').checked;state.app.showCravings=document.getElementById('aCrave').checked;save();render();closeOverlay('settingsOverlay');toast('App settings saved')}
+function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='quit-tracker-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href)}
+function importData(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const s=JSON.parse(r.result);if(!s||!s.app||!Array.isArray(s.trackers))throw 0;state=s;save();render();toast('Backup imported')}catch(err){alert('That file does not look like a Quit Tracker backup.')}};r.readAsText(f)}
+function eraseAll(){if(!confirm('Erase every tracker and app setting on this device?'))return;localStorage.removeItem(KEY);state=load();save();render();closeOverlay('settingsOverlay');toast('Everything erased')}
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open')}));
+render();setInterval(updateTimers,1000);
+</script>
+</body>
+</html>

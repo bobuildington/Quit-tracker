@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="A private, customizable quit tracker. Track anything you want to quit, your way. No account, no server, data stays on your device.">
 <meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icon.svg">
 <title>Quit Tracker</title>
 <style>
 :root{--accent:#0f766e;--bg:#f4f6f3;--card:#ffffff;--text:#111827;--muted:#5b6470;--border:#dfe5df;--danger:#b42318}
@@ -67,7 +70,10 @@ textarea{min-height:70px}
 <div class="row">
 <button class="primary" onclick="openTrackerForm()">+ Add a tracker</button>
 <button onclick="openSettings()">Customize app</button>
+<button id="installBtn" style="display:none" onclick="installApp()">Install app</button>
 </div>
+<p class="sub" id="installNote" style="display:none"></p>
+<p class="sub" id="offlineNote"></p>
 </header>
 <main id="list"></main>
 <p class="foot">Made for GitHub Pages. Export a backup from Customize app before switching devices, because there is no cloud sync.</p>
@@ -136,6 +142,9 @@ textarea{min-height:70px}
 <label class="check"><input type="checkbox" id="aCrave"> Show craving logging</label>
 <div class="row" style="margin-top:16px"><button class="primary" type="submit">Save app settings</button><button type="button" onclick="closeOverlay('settingsOverlay')">Cancel</button></div>
 </form>
+<h3 style="margin:0 0 4px">Install &amp; offline</h3>
+<p class="sub" id="offlineNote2">Checking offline copy...</p>
+<p class="sub">On Android Chrome, tap Install app above when it appears, or use your browser menu and choose Install app / Add to Home screen. On iPhone Safari, use Share, then Add to Home Screen. Once installed it opens on its own, without the browser bar, just like Dayloom.</p>
 <hr style="border:none;border-top:1px solid var(--border);margin:20px 0">
 <div class="row"><button onclick="exportData()">Export backup</button><button onclick="document.getElementById('importFile').click()">Import backup</button><button class="danger" onclick="eraseAll()">Erase everything</button></div>
 <input type="file" id="importFile" accept=".json,application/json" hidden onchange="importData(event)">
@@ -224,7 +233,24 @@ function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'
 function importData(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const s=JSON.parse(r.result);if(!s||!s.app||!Array.isArray(s.trackers))throw 0;state=s;save();render();toast('Backup imported')}catch(err){alert('That file does not look like a Quit Tracker backup.')}};r.readAsText(f)}
 function eraseAll(){if(!confirm('Erase every tracker and app setting on this device?'))return;localStorage.removeItem(KEY);state=load();save();render();closeOverlay('settingsOverlay');toast('Everything erased')}
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open')}));
-render();setInterval(updateTimers,1000);
+let deferredPrompt=null;
+function updateInstallUI(){
+ const installed=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;
+ const btn=document.getElementById('installBtn');const note=document.getElementById('installNote');
+ if(installed){if(btn)btn.style.display='none';if(note){note.style.display='block';note.textContent='Installed: this is the app version, no install button needed here.'}return}
+ if(deferredPrompt){if(btn)btn.style.display='inline-block';if(note)note.style.display='none'}else{if(btn)btn.style.display='none';if(note){note.style.display='block';note.textContent='No install prompt yet. On Android Chrome, use the browser menu and choose Install app or Add to Home screen. On iPhone, use Share, then Add to Home Screen.'}}
+}
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;updateInstallUI()});
+window.addEventListener('appinstalled',()=>{deferredPrompt=null;updateInstallUI();toast('Installed')});
+async function installApp(){if(!deferredPrompt)return;deferredPrompt.prompt();const c=await deferredPrompt.userChoice;deferredPrompt=null;updateInstallUI();if(c&&c.outcome==='accepted')toast('Installed')}
+async function updateOfflineUI(){
+ const msg=(m)=>{const a=document.getElementById('offlineNote');if(a)a.textContent=m;const b=document.getElementById('offlineNote2');if(b)b.textContent=m};
+ if(!('serviceWorker' in navigator)){msg('Offline copy: not supported in this browser.');return}
+ try{const reg=await navigator.serviceWorker.register('./sw.js');msg(reg.active?'Offline copy: Ready. The app opens without a connection after this first visit.':'Offline copy: installing...');}
+ catch(e){msg('Offline copy: not ready yet. Reload once and check again.')}
+}
+updateInstallUI();updateOfflineUI();
+render();setInterval(updateTimers,1000);setInterval(updateInstallUI,5000);
 </script>
 </body>
 </html>
